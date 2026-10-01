@@ -21,7 +21,7 @@ details{margin-bottom:14px}summary{cursor:pointer;font-weight:700}
  <div class="ust"><img src="logo.png" alt=""><b>ATİK Yönetim</b></div>
  <div id="giris" class="kart"><div id="ghata"></div>
   <div class="alan"><label class="bas">E-posta</label><input id="em" type="email" autocomplete="username"></div>
-  <div class="alan"><label class="bas">Parola</label><input id="pw" type="password" autocomplete="current-password"></div>
+  <div class="alan"><label class="bas">Parola</label><div style="position:relative"><input id="pw" type="password" autocomplete="current-password" style="padding-right:84px"><button type="button" id="goz" class="btn" style="position:absolute;right:4px;top:4px;min-height:38px;padding:0 12px">Göster</button></div></div>
   <button class="btn ana" id="gb">Giriş</button></div>
  <div id="panel" hidden>
   <div class="satir"><select id="sec"></select><button class="btn" id="kapat"></button><button class="btn" id="csv">CSV indir</button><button class="btn" id="yenile">Yenile</button><button class="btn" id="cik">Çıkış</button></div>
@@ -52,12 +52,19 @@ const api = (yol, o = {}) => fetch(CFG.URL + '/rest/v1/' + yol, {...o, headers: 
   return r.status === 204 ? null : r.json().catch(() => null);
 });
 
+$('goz').onclick = () => { const g = $('pw').type === 'password'; $('pw').type = g ? 'text' : 'password'; $('goz').textContent = g ? 'Gizle' : 'Göster'; };
 $('gb').onclick = async () => {
+  const hata = m => $('ghata').innerHTML = '<div class="kutu-hata">' + m + '</div>';
   $('ghata').innerHTML = '';
-  const r = await fetch(CFG.URL + '/auth/v1/token?grant_type=password', {method: 'POST', headers: {apikey: CFG.ANON, 'Content-Type': 'application/json'}, body: JSON.stringify({email: $('em').value.trim(), password: $('pw').value})});
-  const j = await r.json();
-  if (!j.access_token) { $('ghata').innerHTML = '<div class="kutu-hata">E-posta ya da parola hatalı.</div>'; return; }
-  tok = j.access_token; sessionStorage.setItem('tok', tok); ac();
+  if (!$('em').value.trim() || !$('pw').value) return hata('E-posta ve parolayı yazın.');
+  $('gb').disabled = true; $('gb').textContent = 'Giriş yapılıyor…';
+  try {
+    const r = await fetch(CFG.URL + '/auth/v1/token?grant_type=password', {method: 'POST', headers: {apikey: CFG.ANON, 'Content-Type': 'application/json'}, body: JSON.stringify({email: $('em').value.trim().toLowerCase(), password: $('pw').value})});
+    const j = await r.json();
+    if (!j.access_token) hata(j.error_code === 'invalid_credentials' ? 'E-posta ya da parola hatalı. "Göster" ile parolayı kontrol edin.' : 'Giriş yapılamadı: ' + (j.msg || r.status));
+    else { tok = j.access_token; sessionStorage.setItem('tok', tok); await ac(); }
+  } catch (e) { hata('Bağlantı ya da yükleme hatası: ' + e.message); $('giris').hidden = false; $('panel').hidden = true; }
+  $('gb').disabled = false; $('gb').textContent = 'Giriş';
 };
 $('pw').onkeydown = e => e.key === 'Enter' && $('gb').click();
 function cikis() { sessionStorage.removeItem('tok'); tok = null; $('panel').hidden = true; $('giris').hidden = false; }
