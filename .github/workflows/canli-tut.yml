@@ -1,0 +1,11 @@
+# Ücretsiz Supabase projesi 1 hafta işlem görmezse uyur; haftada iki kez hafif bir okuma yapar.
+name: canli-tut
+on:
+  schedule:
+    - cron: "0 6 * * 1,4"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: curl -fsS -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1ZG9namxjcmx3dW1wbXB6cGNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4Mzc0MzMsImV4cCI6MjEwNjQxMzQzM30.lASvm1Th_mDa57HHavs0HQ6eEsc5LM1T5Srd-PwEJ1Q" "https://xudogjlcrlwumpmpzpcd.supabase.co/rest/v1/etkinlik?select=slug&limit=1"

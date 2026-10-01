@@ -4,7 +4,7 @@
 <meta name="robots" content="noindex">
 <meta name="color-scheme" content="light">
 <title>ATİK Yönetim</title>
-<link rel="stylesheet" href="ortak.css">
+<link rel="stylesheet" href="ortak.css?v=3">
 <style>
 .sayfa{max-width:1000px}
 .satir{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
@@ -43,7 +43,7 @@ Katılacak kişi sayısı | sayi | *</textarea>
   <div class="tablo"><table id="tb"></table></div>
  </div>
 </div>
-<script src="config.js"></script>
+<script src="config.js?v=3"></script>
 <script>
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -83,13 +83,22 @@ async function ac() {
   sec();
 }
 const sc = () => etks.find(e => e.id === $('sec').value);
+async function tumKayit(id) {
+  let hepsi = [];
+  for (let n = 0; ; n += 1000) {
+    const s = await api(`kayit?etkinlik_id=eq.${id}&select=id,veri,olusma&order=olusma.desc`, {cache: 'no-store', headers: {Range: `${n}-${n + 999}`, 'Range-Unit': 'items'}});
+    hepsi = hepsi.concat(s || []);
+    if (!s || s.length < 1000) return hepsi;
+  }
+}
 async function sec() {
   const e = sc(); if (!e) return;
   $('kapat').textContent = e.acik ? 'Kaydı kapat' : 'Kaydı aç';
   const dizin = location.href.replace(/yonetim\.html.*$/, '');
   $('lnk').innerHTML = 'Veli linki: <b>' + esc(dizin + 'form.html?e=' + e.slug) + '</b>';
-  kayitlar = await api(`kayit?etkinlik_id=eq.${e.id}&select=id,veri,olusma&order=olusma.desc&limit=1000`);
+  kayitlar = await tumKayit(e.id);
   ciz();
+  durum('Son güncelleme: ' + new Date().toLocaleTimeString('tr-TR'));
 }
 function ciz() {
   const e = sc(), q = $('ara').value.toLowerCase();
@@ -112,14 +121,17 @@ $('tb').onclick = async ev => {
 };
 $('sec').onchange = sec; $('ara').oninput = ciz; $('yenile').onclick = sec;
 $('kapat').onclick = async () => { const e = sc(); await api('etkinlik?id=eq.' + e.id, {method: 'PATCH', body: JSON.stringify({acik: !e.acik})}); ac(); };
-$('csv').onclick = () => {
+$('csv').onclick = async () => {
+  try { kayitlar = await tumKayit(sc().id); ciz(); } catch (x) { return durum('CSV için kayıtlar alınamadı: ' + x.message, true); }
   const e = sc(), q = c => '"' + String(c ?? '').replace(/"/g, '""') + '"';
   const hucre = (a, v) => { v = v ?? ''; if (/^[=+\-@]/.test(v)) v = "'" + v; return (a.tur === 'tc' || a.tur === 'tel') && v ? '="' + v + '"' : q(v); };
   const satir = ['sep=;', e.alanlar.map(a => q(a.etiket)).concat(q('Zaman')).join(';')]
     .concat(kayitlar.map(k => e.alanlar.map(a => hucre(a, k.veri[a.ad])).concat(q(new Date(k.olusma).toLocaleString('tr-TR'))).join(';')));
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['\ufeff' + satir.join('\r\n')], {type: 'text/csv;charset=utf-8'}));
-  a.download = e.slug + '.csv'; a.click();
+  const z = new Date(), p = n => String(n).padStart(2, '0');
+  a.download = e.slug + '-' + z.getFullYear() + p(z.getMonth() + 1) + p(z.getDate()) + '-' + p(z.getHours()) + p(z.getMinutes()) + p(z.getSeconds()) + '.csv'; a.click();
+  durum(kayitlar.length + " kayıt indirildi. Dosya adında saat var; indirilenler klasöründe en yeni dosyayı açın.");
 };
 const slugla = s => s.toLocaleLowerCase('tr').replace(/ç/g,'c').replace(/ğ/g,'g').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ş/g,'s').replace(/ü/g,'u').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 $('olustur').onclick = async () => {
@@ -135,6 +147,7 @@ $('olustur').onclick = async () => {
   } catch (e) { return alert('Oluşturulamadı (aynı başlık var mı?): ' + e.message); }
   $('nb').value = ''; ac();
 };
+setInterval(() => { if (tok && !$('panel').hidden && !document.hidden && !document.querySelector('[data-evet]')) sec().catch(() => {}); }, 30000);
 if (tok) ac().catch(() => {});
 </script>
 </body></html>

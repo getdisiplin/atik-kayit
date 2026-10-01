@@ -2,13 +2,17 @@
 <html lang="tr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ATİK Kayıt</title>
-<link rel="stylesheet" href="ortak.css">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light">
+<meta property="og:title" content="ATİK Spor Kulübü Kayıt">
+<meta property="og:description" content="Etkinlik kaydı için formu doldurun.">
+<link rel="stylesheet" href="ortak.css?v=3">
 </head><body>
 <div class="sayfa">
   <div class="ust"><img src="logo.png" alt=""><b>ATİK Spor Kulübü</b></div>
   <div id="kap"><p class="alt">Yükleniyor…</p></div>
 </div>
-<script src="config.js"></script>
+<script src="config.js?v=3"></script>
 <script>
 const kap = document.getElementById('kap');
 const slug = new URLSearchParams(location.search).get('e') || '';
