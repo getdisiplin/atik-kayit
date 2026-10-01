@@ -28,6 +28,7 @@ details{margin-bottom:14px}summary{cursor:pointer;font-weight:700}
  <div id="panel" hidden>
   <div class="satir"><select id="sec"></select><button class="btn" id="kapat"></button><button class="btn" id="csv">CSV indir</button><button class="btn" id="yenile">Yenile</button><button class="btn" id="cik">Çıkış</button></div>
   <div class="link" id="lnk"></div>
+  <div id="durum" class="kvkk" style="margin:0 0 10px"></div>
   <details><summary>Yeni etkinlik oluştur</summary><div class="kart" style="margin-top:10px">
    <div class="alan"><label class="bas">Başlık</label><input id="nb" placeholder="Fon Yemeği 2026"></div>
    <div class="alan"><label class="bas">Açıklama (isteğe bağlı)</label><input id="na"></div>
@@ -95,20 +96,29 @@ function ciz() {
   const f = kayitlar.filter(k => !q || JSON.stringify(k.veri).toLowerCase().includes(q));
   $('say').textContent = f.length + ' kayıt';
   $('tb').innerHTML = `<tr><th>#</th>${e.alanlar.map(a => `<th>${esc(a.etiket)}</th>`).join('')}<th>Zaman</th><th></th></tr>` +
-    f.map((k, i) => `<tr><td>${f.length - i}</td>${e.alanlar.map(a => `<td>${esc(k.veri[a.ad])}</td>`).join('')}<td>${new Date(k.olusma).toLocaleString('tr-TR')}</td><td><button class="sil" data-id="${k.id}">Sil</button></td></tr>`).join('');
+    f.map((k, i) => `<tr><td>${f.length - i}</td>${e.alanlar.map(a => `<td>${esc(k.veri[a.ad])}</td>`).join('')}<td>${new Date(k.olusma).toLocaleString('tr-TR')}</td><td><button class="sil" data-sil="${k.id}">Sil</button></td></tr>`).join('');
 }
+const durum = (m, hata) => { $('durum').textContent = m; $('durum').style.color = hata ? 'var(--hata)' : 'var(--g700)'; };
 $('tb').onclick = async ev => {
-  const id = ev.target.dataset?.id; if (!id || !confirm('Bu kayıt silinsin mi?')) return;
-  await api('kayit?id=eq.' + id, {method: 'DELETE'}); sec();
+  const b = ev.target.closest('button'); if (!b) return;
+  if (b.dataset.sil) { b.parentNode.innerHTML = `<button class="sil" data-evet="${b.dataset.sil}">Evet, sil</button> <button class="sil" style="color:var(--ink3)" data-vaz="1">Vazgeç</button>`; return; }
+  if (b.dataset.vaz) return ciz();
+  if (!b.dataset.evet) return;
+  try {
+    const r = await api('kayit?id=eq.' + b.dataset.evet, {method: 'DELETE', headers: {Prefer: 'return=representation'}});
+    if (!r || !r.length) durum('Silinemedi: kayıt bulunamadı ya da yetki yok.', true); else durum('Kayıt silindi.');
+  } catch (e) { durum('Silinemedi: ' + e.message, true); }
+  sec();
 };
 $('sec').onchange = sec; $('ara').oninput = ciz; $('yenile').onclick = sec;
 $('kapat').onclick = async () => { const e = sc(); await api('etkinlik?id=eq.' + e.id, {method: 'PATCH', body: JSON.stringify({acik: !e.acik})}); ac(); };
 $('csv').onclick = () => {
   const e = sc(), q = c => '"' + String(c ?? '').replace(/"/g, '""') + '"';
-  const satir = [e.alanlar.map(a => a.etiket).concat('Zaman').map(q).join(';')]
-    .concat(kayitlar.map(k => e.alanlar.map(a => k.veri[a.ad]).concat(new Date(k.olusma).toLocaleString('tr-TR')).map(c => q(/^[=+\-@]/.test(c || '') ? "'" + c : c)).join(';')));
+  const hucre = (a, v) => { v = v ?? ''; if (/^[=+\-@]/.test(v)) v = "'" + v; return (a.tur === 'tc' || a.tur === 'tel') && v ? '="' + v + '"' : q(v); };
+  const satir = ['sep=;', e.alanlar.map(a => q(a.etiket)).concat(q('Zaman')).join(';')]
+    .concat(kayitlar.map(k => e.alanlar.map(a => hucre(a, k.veri[a.ad])).concat(q(new Date(k.olusma).toLocaleString('tr-TR'))).join(';')));
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['﻿' + satir.join('\r\n')], {type: 'text/csv;charset=utf-8'}));
+  a.href = URL.createObjectURL(new Blob(['\ufeff' + satir.join('\r\n')], {type: 'text/csv;charset=utf-8'}));
   a.download = e.slug + '.csv'; a.click();
 };
 const slugla = s => s.toLocaleLowerCase('tr').replace(/ç/g,'c').replace(/ğ/g,'g').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ş/g,'s').replace(/ü/g,'u').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
