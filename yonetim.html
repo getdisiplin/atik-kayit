@@ -69,7 +69,7 @@ $('gb').onclick = async () => {
   $('gb').disabled = false; $('gb').textContent = 'Giriş';
 };
 $('pw').oninput = () => $('say2').textContent = 'Parola: ' + $('pw').value.length + ' karakter yazıldı';
-$('pw').onkeydown = e => e.key === 'Enter' && $('gb').click();
+$('pw').onkeydown = e => { if (e.key === 'Enter') $('gb').click(); };
 function cikis() { sessionStorage.removeItem('tok'); tok = null; $('panel').hidden = true; $('giris').hidden = false; }
 $('cik').onclick = cikis;
 
