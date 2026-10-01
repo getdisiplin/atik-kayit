@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ATİK Yönetim</title>
+<link rel="stylesheet" href="ortak.css">
+<style>
+.sayfa{max-width:1000px}
+.satir{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.satir>*{width:auto;flex:0 0 auto}.satir input,.satir select{flex:1 1 180px}
+.btn{width:auto;min-height:42px;padding:0 16px;font-size:14px}
+.tablo{overflow:auto;border:1px solid var(--line);border-radius:14px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--panel);font-size:12px;position:sticky;top:0}
+.link{background:var(--g50);border-radius:12px;padding:10px 14px;word-break:break-all;margin-bottom:12px;font-size:13px}
+details{margin-bottom:14px}summary{cursor:pointer;font-weight:700}
+.sil{color:var(--hata);cursor:pointer;background:none;border:0;font:inherit}
+</style></head><body>
+<div class="sayfa">
+ <div class="ust"><img src="logo.png" alt=""><b>ATİK Yönetim</b></div>
+ <div id="giris" class="kart"><div id="ghata"></div>
+  <div class="alan"><label class="bas">E-posta</label><input id="em" type="email" autocomplete="username"></div>
+  <div class="alan"><label class="bas">Parola</label><input id="pw" type="password" autocomplete="current-password"></div>
+  <button class="btn ana" id="gb">Giriş</button></div>
+ <div id="panel" hidden>
+  <div class="satir"><select id="sec"></select><button class="btn" id="kapat"></button><button class="btn" id="csv">CSV indir</button><button class="btn" id="yenile">Yenile</button><button class="btn" id="cik">Çıkış</button></div>
+  <div class="link" id="lnk"></div>
+  <details><summary>Yeni etkinlik oluştur</summary><div class="kart" style="margin-top:10px">
+   <div class="alan"><label class="bas">Başlık</label><input id="nb" placeholder="Fon Yemeği 2026"></div>
+   <div class="alan"><label class="bas">Açıklama (isteğe bağlı)</label><input id="na"></div>
+   <div class="alan"><label class="bas">Alanlar (her satıra bir alan)</label>
+    <textarea id="nal" style="min-height:140px">Öğrenci Ad Soyad | metin | *
+T.C. Kimlik No | tc | *
+Veli Telefonu | tel | *
+Katılacak kişi sayısı | sayi | *</textarea>
+    <div class="kvkk">Biçim: <b>Etiket | tür | *</b> (* zorunlu). Türler: metin, tc, tel, sayi, tarih, uzun, onay, secim (seçim için sona <b>| Seçenek1, Seçenek2</b>). T.C. alanı varsa aynı TC ikinci kez kaydolamaz.</div></div>
+   <button class="btn ana" id="olustur">Oluştur</button></div></details>
+  <div class="satir"><input id="ara" placeholder="Ara…"><b id="say"></b></div>
+  <div class="tablo"><table id="tb"></table></div>
+ </div>
+</div>
+<script src="config.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let tok = sessionStorage.getItem('tok'), etks = [], kayitlar = [];
+const H = () => ({apikey: CFG.ANON, Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json'});
+const api = (yol, o = {}) => fetch(CFG.URL + '/rest/v1/' + yol, {...o, headers: {...H(), ...(o.headers || {})}}).then(async r => {
+  if (r.status === 401) { cikis(); throw new Error('oturum'); }
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message || r.status);
+  return r.status === 204 ? null : r.json().catch(() => null);
+});
+
+$('gb').onclick = async () => {
+  $('ghata').innerHTML = '';
+  const r = await fetch(CFG.URL + '/auth/v1/token?grant_type=password', {method: 'POST', headers: {apikey: CFG.ANON, 'Content-Type': 'application/json'}, body: JSON.stringify({email: $('em').value.trim(), password: $('pw').value})});
+  const j = await r.json();
+  if (!j.access_token) { $('ghata').innerHTML = '<div class="kutu-hata">E-posta ya da parola hatalı.</div>'; return; }
+  tok = j.access_token; sessionStorage.setItem('tok', tok); ac();
+};
+$('pw').onkeydown = e => e.key === 'Enter' && $('gb').click();
+function cikis() { sessionStorage.removeItem('tok'); tok = null; $('panel').hidden = true; $('giris').hidden = false; }
+$('cik').onclick = cikis;
+
+async function ac() {
+  $('giris').hidden = true; $('panel').hidden = false;
+  etks = await api('etkinlik?select=*&order=olusma.desc');
+  const eski = $('sec').value;
+  $('sec').innerHTML = etks.map(e => `<option value="${e.id}">${esc(e.baslik)}${e.acik ? '' : ' (kapalı)'}</option>`).join('');
+  if (eski) $('sec').value = eski;
+  sec();
+}
+const sc = () => etks.find(e => e.id === $('sec').value);
+async function sec() {
+  const e = sc(); if (!e) return;
+  $('kapat').textContent = e.acik ? 'Kaydı kapat' : 'Kaydı aç';
+  const dizin = location.href.replace(/yonetim\.html.*$/, '');
+  $('lnk').innerHTML = 'Veli linki: <b>' + esc(dizin + 'form.html?e=' + e.slug) + '</b>';
+  kayitlar = await api(`kayit?etkinlik_id=eq.${e.id}&select=id,veri,olusma&order=olusma.desc&limit=1000`);
+  ciz();
+}
+function ciz() {
+  const e = sc(), q = $('ara').value.toLowerCase();
+  const f = kayitlar.filter(k => !q || JSON.stringify(k.veri).toLowerCase().includes(q));
+  $('say').textContent = f.length + ' kayıt';
+  $('tb').innerHTML = `<tr><th>#</th>${e.alanlar.map(a => `<th>${esc(a.etiket)}</th>`).join('')}<th>Zaman</th><th></th></tr>` +
+    f.map((k, i) => `<tr><td>${f.length - i}</td>${e.alanlar.map(a => `<td>${esc(k.veri[a.ad])}</td>`).join('')}<td>${new Date(k.olusma).toLocaleString('tr-TR')}</td><td><button class="sil" data-id="${k.id}">Sil</button></td></tr>`).join('');
+}
+$('tb').onclick = async ev => {
+  const id = ev.target.dataset?.id; if (!id || !confirm('Bu kayıt silinsin mi?')) return;
+  await api('kayit?id=eq.' + id, {method: 'DELETE'}); sec();
+};
+$('sec').onchange = sec; $('ara').oninput = ciz; $('yenile').onclick = sec;
+$('kapat').onclick = async () => { const e = sc(); await api('etkinlik?id=eq.' + e.id, {method: 'PATCH', body: JSON.stringify({acik: !e.acik})}); ac(); };
+$('csv').onclick = () => {
+  const e = sc(), q = c => '"' + String(c ?? '').replace(/"/g, '""') + '"';
+  const satir = [e.alanlar.map(a => a.etiket).concat('Zaman').map(q).join(';')]
+    .concat(kayitlar.map(k => e.alanlar.map(a => k.veri[a.ad]).concat(new Date(k.olusma).toLocaleString('tr-TR')).map(c => q(/^[=+\-@]/.test(c || '') ? "'" + c : c)).join(';')));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + satir.join('\r\n')], {type: 'text/csv;charset=utf-8'}));
+  a.download = e.slug + '.csv'; a.click();
+};
+const slugla = s => s.toLocaleLowerCase('tr').replace(/ç/g,'c').replace(/ğ/g,'g').replace(/ı/g,'i').replace(/ö/g,'o').replace(/ş/g,'s').replace(/ü/g,'u').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+$('olustur').onclick = async () => {
+  const baslik = $('nb').value.trim(); if (!baslik) return alert('Başlık gerekli.');
+  const alanlar = $('nal').value.split('\n').map(s => s.trim()).filter(Boolean).map((s, i) => {
+    const p = s.split('|').map(x => x.trim());
+    return {ad: 'a' + (i + 1), etiket: p[0], tur: p[1] || 'metin', zorunlu: p[2] === '*', ...(p[3] ? {secenekler: p[3].split(',').map(x => x.trim())} : {})};
+  });
+  const tc = alanlar.find(a => a.tur === 'tc');
+  if (tc) tc.ad = 'tc';
+  try {
+    await api('etkinlik', {method: 'POST', headers: {Prefer: 'return=minimal'}, body: JSON.stringify({slug: slugla(baslik), baslik, aciklama: $('na').value.trim() || null, alanlar, tekil_alan: tc ? 'tc' : null})});
+  } catch (e) { return alert('Oluşturulamadı (aynı başlık var mı?): ' + e.message); }
+  $('nb').value = ''; ac();
+};
+if (tok) ac().catch(() => {});
+</script>
+</body></html>
