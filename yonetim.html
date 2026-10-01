@@ -2,6 +2,7 @@
 <html lang="tr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex">
+<meta name="color-scheme" content="light">
 <title>ATİK Yönetim</title>
 <link rel="stylesheet" href="ortak.css">
 <style>
@@ -22,7 +23,8 @@ details{margin-bottom:14px}summary{cursor:pointer;font-weight:700}
  <div id="giris" class="kart"><div id="ghata"></div>
   <div class="alan"><label class="bas">E-posta</label><input id="em" type="email" autocomplete="username"></div>
   <div class="alan"><label class="bas">Parola</label><div style="position:relative"><input id="pw" type="password" autocomplete="current-password" style="padding-right:84px"><button type="button" id="goz" class="btn" style="position:absolute;right:4px;top:4px;min-height:38px;padding:0 12px">Göster</button></div></div>
-  <button class="btn ana" id="gb">Giriş</button></div>
+  <div class="kvkk" id="say2">Parola: 0 karakter yazıldı</div>
+  <button class="btn ana" id="gb" style="margin-top:12px">Giriş</button></div>
  <div id="panel" hidden>
   <div class="satir"><select id="sec"></select><button class="btn" id="kapat"></button><button class="btn" id="csv">CSV indir</button><button class="btn" id="yenile">Yenile</button><button class="btn" id="cik">Çıkış</button></div>
   <div class="link" id="lnk"></div>
@@ -66,6 +68,7 @@ $('gb').onclick = async () => {
   } catch (e) { hata('Bağlantı ya da yükleme hatası: ' + e.message); $('giris').hidden = false; $('panel').hidden = true; }
   $('gb').disabled = false; $('gb').textContent = 'Giriş';
 };
+$('pw').oninput = () => $('say2').textContent = 'Parola: ' + $('pw').value.length + ' karakter yazıldı';
 $('pw').onkeydown = e => e.key === 'Enter' && $('gb').click();
 function cikis() { sessionStorage.removeItem('tok'); tok = null; $('panel').hidden = true; $('giris').hidden = false; }
 $('cik').onclick = cikis;
